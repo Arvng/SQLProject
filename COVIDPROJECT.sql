@@ -134,14 +134,6 @@ select * from [dbo].[Worlds_vaccination_percentage]
 
 drop view [dbo].[Worlds_vaccination_percentage]
 
-all we need is 
-aged_65_older
-aged_70_older
-Total_vaccinations
-Total_boosters
-continent
-Locataion
-
 /* data cleaning 
 
 alter table covid_death
