@@ -1,138 +1,276 @@
-select * from covid_death
-order by 3,4
+-- 1. Total number of Deaths and Cases recorded
+SELECT
+    MAX(total_cases) AS TotalCases,
+    MAX(total_deaths) AS Totaldeaths,
+    Location
+FROM covid_death
+WHERE location IS NOT NULL AND continent IS NOT NULL
+GROUP BY location
+ORDER BY Totaldeaths, TotalCases;
 
-select Location, date, total_cases, new_cases, total_deaths, country_Population from covid_death
-order by 1,2  ---order by 1,2 is given to sort the location Alphabetically or we can even use the regular order by clause i.e order by location.
+CREATE VIEW DeathsAndCases AS
+(
+    SELECT
+        MAX(total_cases) AS TotalCases,
+        MAX(total_deaths) AS Totaldeaths,
+        Location
+    FROM covid_death
+    WHERE location IS NOT NULL AND continent IS NOT NULL
+    GROUP BY location
+);
 
-
---Looking for total cases vs total deaths
-
-select Location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as Death_Percentage from covid_death
-where total_cases is not null
-order by Death_Percentage asc
-
-
---Looking for total cases vs total deaths in Inida
-select Location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 as Death_Percentage from covid_death
-where total_cases is not null and location='India'
-order by Death_Percentage asc
-
---What percentage of population got infected by covid-- not using aggreate fuction
-select Location, date, total_cases, [country_Population], (total_cases/[country_Population])*100 as Infected_Percentage from covid_death
-where total_cases is not null
-order by Infected_Percentage desc
-
---highest percentage of population got infected--using aggregate function
---excluding null values
-select max(total_cases) as Highest_infected_country, country_Population, Location, max((total_cases/country_Population))*100 as Percentage_Populationinfected from covid_death
-where continent is not null and total_cases is not null
-group by Location, country_population
-order by Highest_infected_country desc
-
----Total Death Count by Location using aggregate function, where, group by and order by clause
-
-select MAX(total_deaths) as Total_no_of_death, Location from covid_death
-where total_deaths is not null and continent is not null
-group by Location
-order by Total_no_of_death desc
-
----Highest/Total Death Count by continent using aggregate function, where, group by and order by clause
-select MAX(total_deaths) as Total_no_of_death, continent from covid_death
-where total_deaths is not null and continent is not null 
-group by continent
-order by Total_no_of_death desc
-
-----Total number of new cases registered in a day and total number of death registered in a day.
-
-select date, SUM(cast(new_cases as int)) as New_cases,total_deaths from covid_death
-group by date, total_deaths
-order by new_cases, Total_deaths asc
-
---overall Case recorded, Death recorded, Worlds Population and Death Percentage.
-
-select SUM(total_cases) as Cases_recorded, SUM(total_deaths) as Death_recorded, SUM(country_Population) as Worlds_Population, 
-(sum(Total_deaths)/sum(country_Population))*100 as Death_percentage from covid_death
-
-/* COVID VACCINATIONS*/
-
-
-SELECT mEDIAN_AGE, aged_65_older, aged_70_older, Total_vaccinations,Total_boosters, continent, Location from [dbo].[covidvaccination]
-WHERE TOTAL_VACCINATIONS IS NOT NULL
-
----Total Vaccination, Booster shots grouped by continents
-
-SELECT SUM(CAST(Total_vaccinations AS bigint)) AS WORLDS_VACCINATION, SUM(CAST(Total_boosters AS bigint)) AS WORLDS_TO_NO_BOOSTER,
-continent from [dbo].[covidvaccination]
-WHERE CONTINENT IS NOT NULL
-GROUP BY CONTINENT
-
----Joins
-select * from covid_death as CD
-join covidvaccination as CV
-on CD.location=CV.location 
-and CD.date = CV.date
-
-
-----Looking for total vaccination  and  population
-
-select CD.location,CD.date,CD.continent,CD.country_Population, CV.total_vaccinations from covid_death as CD
-join covidvaccination as CV
-on CD.location=CV.location 
-and CD.date = CV.date
-where CD.continent is not null
-order by CV.total_vaccinations
-
--------------New vaccination and Up to date Vaccination by location
-
-select CD.location,CD.date,CD.continent,CD.country_Population, CV.new_vaccinations, 
-SUM(cast(CV.New_vaccinations as bigint)) over (PARTITION by CD.location order by CD.location,CD.date) as UTDVaccination  from covid_death as CD
-join covidvaccination as CV
-on CD.location=CV.location 
-and CD.date = CV.date
-where CD.continent is not null
-
-
-----Total New vaccination against population
-
-select CD.location,CD.date,CD.continent,CD.country_Population, CV.new_vaccinations,
-sum(cast(CV.new_vaccinations AS float))/SUM(CD.Country_population)*100 as Vaccination_percentage from covid_death as CD
-join covidvaccination as CV
-on CD.location=CV.location 
-and CD.date = CV.date
-where CD.continent is not null
-Group by cd.location, CD.date, CD.continent,CD.country_Population,CV.new_vaccinations
-order by Vaccination_percentage
-
-----Total New vaccination against population
------CTE
- 
-with Popvsvac (continent,Location, date, country_Population,new_vaccinations, current_vaccination)
-as (
-select CD.location,CD.continent, cd.date, CD.country_Population, CV.new_vaccinations,
-sum(convert(bigint,CV.new_vaccinations)) over (partition by CD.location order by CD.location,cd.date) as current_Vaccination
-from sql_project..covid_death CD
-join sql_project..covidvaccination CV
-on CD.location=CV.location
-and CD.date=CV.date
-where CD.continent is not null
+-- 2. Total number of Covid cases #YEAR wise - using CTE
+-- Alpha is the object name.
+WITH alpha(Covid_year, Location, Recorded_Covidcases_per_year) AS
+(
+    SELECT
+        YEAR(date) AS Covid_year,
+        Location,
+        MAX(Total_cases) OVER(PARTITION BY Location) AS Recorded_Covidcases_per_year
+    FROM covid_death
+    WHERE continent IS NOT NULL
 )
-select *, (current_vaccination/country_Population)*100 as percent_of_vaccination from Popvsvac
+SELECT
+    MAX(Recorded_Covidcases_per_year) AS Covid_cases_Peryear_by_Location,
+    Location,
+    Covid_year
+FROM alpha
+GROUP BY Location, Covid_year
+ORDER BY Covid_year;
 
----creating view to store data for visulaization
+CREATE VIEW CasesByYear AS
+    WITH alpha(Covid_year, Location, Recorded_Covidcases_per_year) AS
+    (
+        SELECT
+            YEAR(date) AS Covid_year,
+            Location,
+            MAX(Total_cases) OVER(PARTITION BY Location) AS Recorded_Covidcases_per_year
+        FROM covid_death
+        WHERE continent IS NOT NULL
+    )
+    SELECT
+        MAX(Recorded_Covidcases_per_year) AS Covid_cases_Peryear_by_Location,
+        Location,
+        Covid_year
+    FROM alpha
+    GROUP BY Location, Covid_year;
 
-create view Worlds_vaccination_percentage 
-as
-select CD.location,CD.continent, cd.date, CD.country_Population, CV.new_vaccinations,
-sum(convert(bigint,CV.new_vaccinations)) over (partition by CD.location order by CD.location,cd.date) as current_Vaccination
-from sql_project..covid_death CD
-join sql_project..covidvaccination CV
-on CD.location=CV.location
-and CD.date=CV.date
-where CD.continent is not null
+-- 3. What percentage of population got infected
+SELECT
+    MAX(total_cases) AS Highest_infected_country,
+    country_Population,
+    Location,
+    MAX((total_cases / country_Population)) * 100 AS Percentage_Populationinfected
+FROM covid_death
+WHERE continent IS NOT NULL AND total_cases IS NOT NULL
+GROUP BY Location, country_population
+ORDER BY Highest_infected_country;
 
-select * from [dbo].[Worlds_vaccination_percentage]
+CREATE VIEW PopInfectionPerc AS
+(
+    SELECT
+        MAX(total_cases) AS Highest_infected_country,
+        country_Population,
+        Location,
+        MAX((total_cases / country_Population)) * 100 AS Percentage_Populationinfected
+    FROM covid_death
+    WHERE continent IS NOT NULL AND total_cases IS NOT NULL
+    GROUP BY Location, country_population
+);
 
-drop view [dbo].[Worlds_vaccination_percentage]
+-- 4. Total/Highest Death recorded by Location
+SELECT
+    MAX(total_deaths) AS Total_no_of_death,
+    Location
+FROM covid_death
+WHERE total_deaths IS NOT NULL AND continent IS NOT NULL
+GROUP BY Location
+ORDER BY Total_no_of_death DESC;
+
+CREATE VIEW HighestDeathCountry AS
+(
+    SELECT
+        MAX(total_deaths) AS Total_no_of_death,
+        Location
+    FROM covid_death
+    WHERE total_deaths IS NOT NULL AND continent IS NOT NULL
+    GROUP BY Location
+);
+
+-- 5. Highest/Total Death recorded by continent
+SELECT
+    MAX(total_deaths) AS Total_no_of_death,
+    continent
+FROM covid_death
+WHERE total_deaths IS NOT NULL AND continent IS NOT NULL
+GROUP BY continent
+ORDER BY Total_no_of_death DESC;
+
+CREATE VIEW HighestDeathCont AS
+(
+    SELECT
+        MAX(total_deaths) AS Total_no_of_death,
+        continent
+    FROM covid_death
+    WHERE total_deaths IS NOT NULL AND continent IS NOT NULL
+    GROUP BY continent
+);
+
+-- 6. Total number of new cases registered in a day and total number of death registered in a day
+SELECT
+    date,
+    SUM(CAST(new_cases AS INT)) AS New_cases,
+    total_deaths
+FROM covid_death
+GROUP BY date, total_deaths
+ORDER BY New_cases, Total_deaths ASC;
+
+CREATE VIEW DailyCasesDeaths AS
+(
+    SELECT
+        date,
+        SUM(CAST(new_cases AS INT)) AS New_cases,
+        total_deaths
+    FROM covid_death
+    GROUP BY date, total_deaths
+);
+
+-- 7. Overall Case recorded, Death recorded, World's Population, and Death Percentage
+WITH Overall_Covid_data(Total_Population, Death_recorded, case_recorded, Location, continent) AS
+(
+    SELECT
+        MAX(country_population) AS Total_Population,
+        MAX(Total_deaths) AS Death_recorded,
+        MAX(total_cases) AS case_recorded,
+        Location,
+        continent
+    FROM covid_death
+    WHERE continent IS NOT NULL AND location IS NOT NULL
+    GROUP BY location, continent
+)
+SELECT
+    SUM(case_recorded) AS Cases_recorded,
+    SUM(Death_recorded) AS Death_recorded,
+    SUM(Total_Population) AS Worlds_Population,
+    (SUM(Death_recorded) / SUM(Total_Population)) * 100 AS Death_percentage
+FROM Overall_Covid_data;
+
+CREATE VIEW OverallStats AS
+    WITH Overall_Covid_data(Total_Population, Death_recorded, case_recorded, Location, continent) AS
+    (
+        SELECT
+            MAX(country_population) AS Total_Population,
+            MAX(Total_deaths) AS Death_recorded,
+            MAX(total_cases) AS case_recorded,
+            Location,
+            continent
+        FROM covid_death
+        WHERE continent IS NOT NULL AND location IS NOT NULL
+        GROUP BY location, continent
+    )
+    SELECT
+        SUM(case_recorded) AS Cases_recorded,
+        SUM(Death_recorded) AS Death_recorded,
+        SUM(Total_Population) AS Worlds_Population,
+        (SUM(Death_recorded) / SUM(Total_Population)) * 100 AS Death_percentage
+    FROM Overall_Covid_data
+
+
+-- 8. First Vaccination, People fully vaccinated grouped by Country
+WITH First_and_Fully_Vaccinated(Location, First_vaccinated_Jab, Fully_vaccinated) AS
+(
+    SELECT
+        Location,
+        Max(Total_Vaccinations) OVER(PARTITION BY Location) AS First_vaccinated_Jab,
+        Max(people_fully_vaccinated) OVER(PARTITION BY Location) AS Fully_vaccinated
+    FROM covidvaccination
+    WHERE location IS NOT NULL AND continent IS NOT NULL
+)
+SELECT
+    MAX(First_vaccinated_Jab) AS First_vaccination_Jab,
+    MAX(Fully_vaccinated) AS People_Fullyvaccinated,
+    Location
+FROM First_and_Fully_Vaccinated
+GROUP BY Location;
+
+CREATE VIEW FirstVaccCountry AS
+
+    WITH First_and_Fully_Vaccinated(Location, First_vaccinated_Jab, Fully_vaccinated) AS
+    (
+        SELECT
+            Location,
+            Max(Total_Vaccinations) OVER(PARTITION BY Location) AS First_vaccinated_Jab,
+            Max(people_fully_vaccinated) OVER(PARTITION BY Location) AS Fully_vaccinated
+        FROM covidvaccination
+        WHERE location IS NOT NULL AND continent IS NOT NULL
+    )
+    SELECT
+        MAX(First_vaccinated_Jab) AS First_vaccination_Jab,
+        MAX(Fully_vaccinated) AS People_Fullyvaccinated,
+        Location
+    FROM First_and_Fully_Vaccinated
+    GROUP BY Location
+
+
+-- 9. First Vaccination, People fully vaccinated grouped by continent
+WITH First_and_Fully_ContVaccinated(continent, First_vaccinated_Jab, Fully_vaccinated) AS
+(
+    SELECT
+        continent,
+        Max(Total_Vaccinations) OVER(PARTITION BY continent) AS First_vaccinated_Jab,
+        Max(people_fully_vaccinated) OVER(PARTITION BY continent) AS Fully_vaccinated
+    FROM covidvaccination
+    WHERE location IS NOT NULL AND continent IS NOT NULL
+)
+SELECT
+    MAX(First_vaccinated_Jab) AS First_vaccination_Jab,
+    MAX(Fully_vaccinated) AS People_Fullyvaccinated,
+    continent
+FROM First_and_Fully_ContVaccinated
+GROUP BY continent;
+
+CREATE VIEW FirstVaccCont AS
+    WITH First_and_Fully_ContVaccinated(continent, First_vaccinated_Jab, Fully_vaccinated) AS
+    (
+        SELECT
+            continent,
+            Max(Total_Vaccinations) OVER(PARTITION BY continent) AS First_vaccinated_Jab,
+            Max(people_fully_vaccinated) OVER(PARTITION BY continent) AS Fully_vaccinated
+        FROM covidvaccination
+        WHERE location IS NOT NULL AND continent IS NOT NULL
+    )
+    SELECT
+        MAX(First_vaccinated_Jab) AS First_vaccination_Jab,
+        MAX(Fully_vaccinated) AS People_Fullyvaccinated,
+        continent
+    FROM First_and_Fully_ContVaccinated
+    GROUP BY continent
+
+
+-- 10. Total number of People Vaccinated and Total Population of the country
+SELECT
+    MAX(CV.[people_fully_vaccinated]) AS People_vaccinated,
+    CD.location,
+    CD.continent,
+    CD.country_Population
+FROM sql_project..Covid_death CD
+JOIN sql_project..Covidvaccination CV ON CD.Location = CV.Location
+WHERE CV.continent IS NOT NULL
+GROUP BY CD.location, CD.country_Population, CD.continent
+ORDER BY people_vaccinated DESC;
+
+CREATE VIEW VaccPopByCountry AS
+(
+    SELECT
+        MAX(CV.[people_fully_vaccinated]) AS People_vaccinated,
+        CD.location,
+        CD.continent,
+        CD.country_Population
+    FROM sql_project..Covid_death CD
+    JOIN sql_project..Covidvaccination CV ON CD.Location = CV.Location
+    WHERE CV.continent IS NOT NULL
+    GROUP BY CD.location, CD.country_Population, CD.continent
+);
 
 /* data cleaning 
 
@@ -157,10 +295,20 @@ where location = 'low income'
 delete from covid_death
 where location = 'high income'
 
+delete from covidvaccination
+where people_fully_vaccinated is null
+
 delete from covid_death
 where location = 'world'
 
 sp_rename 'covid_Death.population', 'country_Population' 
 
-*/
+Notes:
+1.The ORDER BY clause is invalid in views
+, inline functions, derived tables, subqueries, and common table expressions
+, unless TOP, OFFSET or FOR XML is also specified.
 
+2.To execute the query I have removed the parentheses that were originally surrounding the CTE definition 
+after the AS keyword in the CREATE VIEW statement
+
+*/
