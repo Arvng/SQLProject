@@ -272,7 +272,20 @@ CREATE VIEW VaccPopByCountry AS
     GROUP BY CD.location, CD.country_Population, CD.continent
 );
 
-/* data cleaning 
+/* data cleaning */
+
+******Date Conversion*******
+-- Select [DATE]_>column and convert it for display
+SELECT [DATE], CONVERT(date, [date]) AS DateConverted
+FROM covid_death;
+
+-- Alter the table to add a new column named DateConverted
+ALTER TABLE covid_death
+ADD DateConverted date;
+
+-- Update the DateConverted column with correctly formatted dates
+UPDATE covid_death
+SET DateConverted = CONVERT(date, [date]);
 
 alter table covid_death
 alter column total_deaths float
@@ -311,4 +324,4 @@ Notes:
 2.To execute the query I have removed the parentheses that were originally surrounding the CTE definition 
 after the AS keyword in the CREATE VIEW statement
 
-*/
+
