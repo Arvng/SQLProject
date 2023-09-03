@@ -56,22 +56,24 @@ after the AS keyword in the CREATE VIEW statement
 3. I have amended the code for
       #2" Total number of Covid cases #year and #continet wise"
 
-The reason to use CTE and View function for the "2" Query is when i tried to filter Maximum number of cases in a country in a given year i received
+**The reason to use CTE and View function for the "2" Query is when i tried to filter Maximum number of cases in a country in a given year i received
  error "Operand type clash: date is incompatible with smallint"
+
 This was my test code
 ----------------------------
 /* select Location, year(cast(dateconverted as date)) as Covid_year, total_cases from covid_death
 where location = 'Afghanistan' and dateconverted=2021
 -----------------------------
 To fix this, after a small research I wrote this code 
+
+------------------------------
 SELECT Location, YEAR(dateconverted) AS Covid_year, total_cases
 FROM covid_death
 WHERE Location = 'Afghanistan'
   AND dateconverted >= '2021'  -- Start of 2021
   AND dateconverted <= '2022' --- End of 2021 */
 ----------------------------
+
 I got the result, but I didn't get maximum number of cases recorded in a country, 
-    instead the result was complete list of cases recorded each day ..so I used CTE and View to bring the result.
-----------------------------
-I got the_result, but i didn't get maximum number of cases recorded in a country, 
-    instead the result was compelte list of cases recorded each day ..so I used CTE and View to bring the result.
+    instead the result was complete list of cases recorded each day ..so I used CTE and View to bring the result.**
+
