@@ -19,41 +19,50 @@ CREATE VIEW DeathsAndCases AS
     GROUP BY location
 );
 
--- 2. Total number of Covid cases #YEAR wise - using CTE
--- Alpha is the object name.
-WITH alpha(Covid_year, Location, Recorded_Covidcases_per_year) AS
-(
+-- 2. Total number of Covid cases #YEAR ad #continent wise - using CTE
+-- Create a Common Table Expression (CTE) named Maxtoalcasesinayear
+WITH Maxtoalcasesinayear (Location, covid_year, continent, total_cases) AS (
     SELECT
-        YEAR(date) AS Covid_year,
         Location,
-        MAX(Total_cases) OVER(PARTITION BY Location) AS Recorded_Covidcases_per_year
-    FROM covid_death
-    WHERE continent IS NOT NULL
+        YEAR(dateconverted) AS Covid_year,
+        continent,
+        Total_cases
+    FROM
+        covid_death
+    WHERE
+        continent IS NOT NULL
+        AND total_cases IS NOT NULL
 )
-SELECT
-    MAX(Recorded_Covidcases_per_year) AS Covid_cases_Peryear_by_Location,
-    Location,
-    Covid_year
-FROM alpha
-GROUP BY Location, Covid_year
-ORDER BY Covid_year;
 
-CREATE VIEW CasesByYear AS
-    WITH alpha(Covid_year, Location, Recorded_Covidcases_per_year) AS
-    (
-        SELECT
-            YEAR(date) AS Covid_year,
-            Location,
-            MAX(Total_cases) OVER(PARTITION BY Location) AS Recorded_Covidcases_per_year
-        FROM covid_death
-        WHERE continent IS NOT NULL
-    )
+/*-- Created a view named Maxtoalcasesinayear-this table can be used to get total number of covid cases for the year 2020, 2021,2022 and 2023
+and can be used to get total number covid cases by continent in each year--*/
+
+CREATE VIEW Maxtoalcasesinayear AS
+WITH Maxtoalcasesinayear(Location, covid_year, continent, total_cases) AS (
     SELECT
-        MAX(Recorded_Covidcases_per_year) AS Covid_cases_Peryear_by_Location,
         Location,
-        Covid_year
-    FROM alpha
-    GROUP BY Location, Covid_year;
+        YEAR(dateconverted) AS Covid_year,
+        continent,
+        Total_cases
+    FROM
+        covid_death
+    WHERE
+        continent IS NOT NULL
+        AND Total_cases IS NOT NULL
+)
+-- Example: Select the desired columns and calculate the maximum total COVID-19 cases in a year--
+SELECT
+    Covid_year,
+    Location,
+    continent,
+    MAX(total_cases) AS total_covid_cases_inayear
+FROM
+    Maxtoalcasesinayear
+GROUP BY
+    Covid_year,
+    Location,
+    continent;
+
 
 -- 3. What percentage of population got infected
 SELECT
@@ -315,7 +324,7 @@ delete from covid_death
 where location = 'world'
 
 sp_rename 'covid_Death.population', 'country_Population' 
-
+/*    
 Notes:
 1.The ORDER BY clause is invalid in views
 , inline functions, derived tables, subqueries, and common table expressions
@@ -323,5 +332,28 @@ Notes:
 
 2.To execute the query I have removed the parentheses that were originally surrounding the CTE definition 
 after the AS keyword in the CREATE VIEW statement
+
+3. I have amended the code for
+      #2" Total number of Covid cases #year and #continet wise"
+
+The reason to use CTE and View function for the "2" Query is when i tried to filter Maximum number of cases in a country in a given year i received
+ error "Operand type clash: date is incompatible with smallint"
+This was my test code
+----------------------------
+/* select Location, year(cast(dateconverted as date)) as Covid_year, total_cases from covid_death
+where location = 'Afghanistan' and dateconverted=2021
+-----------------------------
+To fix this, after a small research I wrote this code 
+SELECT Location, YEAR(dateconverted) AS Covid_year, total_cases
+FROM covid_death
+WHERE Location = 'Afghanistan'
+  AND dateconverted >= '2021'  -- Start of 2021
+  AND dateconverted <= '2022' --- End of 2021 */
+----------------------------
+I got the result, but I didn't get maximum number of cases recorded in a country, 
+    instead the result was complete list of cases recorded each day ..so I used CTE and View to bring the result.
+----------------------------
+I got the_result, but i didn't get maximum number of cases recorded in a country, 
+    instead the result was compelte list of cases recorded each day ..so I used CTE and View to bring the result.
 
 
